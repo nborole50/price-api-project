@@ -1,7 +1,8 @@
-# test_model.py
+# test_model.py (Corrected)
 
 import pickle
 import pandas as pd
+import json
 import warnings
 
 # Suppress warnings for cleaner test output
@@ -9,50 +10,50 @@ warnings.filterwarnings("ignore")
 
 def test_model_prediction():
     """
-    This test loads the dataset and the trained model, preprocesses a sample,
+    This test loads the dataset, model, and required columns, preprocesses a sample,
     and checks if a valid prediction is made.
     """
     print("--- Running test: test_model_prediction ---")
 
-    # 1. Load the dataset
+    # 1. Load artifacts
     try:
+        # Load the pre-trained model
+        with open("flight_price_model.pkl", "rb") as f:
+            model = pickle.load(f)
+        print("Model loaded successfully.")
+
+        # Load the list of columns the model was trained on
+        with open("model_columns.json", "r") as f:
+            model_columns = json.load(f)
+        print("Model columns loaded successfully.")
+
+        # Load the dataset for creating a test sample
         df = pd.read_excel('indigo_flights_dataset.xlsx')
         df.dropna(subset=['Price'], inplace=True)
         df.columns = df.columns.str.strip()
         print("Dataset loaded successfully.")
-    except FileNotFoundError:
-        assert False, "Dataset file 'indigo_flights_dataset.xlsx' not found."
 
-    # 2. Perform the same preprocessing as in training
-    df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
-    df['Month'] = df['Date'].dt.month
-    df['Year'] = df['Date'].dt.year
+    except FileNotFoundError as e:
+        assert False, f"Artifact not found: {e}"
 
-    features_to_encode = [
-        'Day_of_Week', 'Source', 'Destination', 'Aircraft_Type', 'Class',
-        'Weather_Conditions', 'Meal_Opted', 'Booking_Channel'
-    ]
-    df_encoded = pd.get_dummies(df, columns=features_to_encode, drop_first=True)
+    # 2. Create a sample and preprocess it
+    sample_raw = df.head(1) # Use the first row as our test case
 
-    columns_to_drop = [
-        'Price', 'Date', 'Flight_ID', 'Departure_Time', 'Arrival_Time',
-        'Duration', 'Delay_Status'
-    ]
-    existing_cols_to_drop = [col for col in columns_to_drop if col in df_encoded.columns]
-    X = df_encoded.drop(columns=existing_cols_to_drop)
-    print("Data preprocessing complete.")
+    sample_raw['Date'] = pd.to_datetime(sample_raw['Date'], dayfirst=True)
+    sample_raw['Month'] = sample_raw['Date'].dt.month
+    sample_raw['Year'] = sample_raw['Date'].dt.year
 
-    # 3. Load the pre-trained model
-    try:
-        with open("flight_price_model.pkl", "rb") as f:
-            model = pickle.load(f)
-        print("Model loaded successfully.")
-    except FileNotFoundError:
-        assert False, "Model file 'flight_price_model.pkl' not found."
+    # One-hot encode the sample
+    sample_encoded = pd.get_dummies(sample_raw)
+    print("Sample data preprocessed.")
 
-    # 4. Make a prediction on the first sample
-    sample_data = X.head(1)
-    prediction = model.predict(sample_data)
+    # 3. Align columns with the trained model
+    # This is the crucial step to prevent errors
+    sample_aligned = sample_encoded.reindex(columns=model_columns, fill_value=0)
+    print("Sample columns aligned with model columns.")
+
+    # 4. Make a prediction
+    prediction = model.predict(sample_aligned)
     print(f"Prediction on sample data: {prediction}")
 
     # 5. Assert test conditions
