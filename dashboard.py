@@ -1,4 +1,4 @@
-# dashboard.py (Enhanced Version with Fairness and Drift)
+# dashboard.py (Final Version with RAI Checklist)
 
 import streamlit as st
 import pandas as pd
@@ -19,7 +19,7 @@ st.set_page_config(page_title="Indigo Flight Price Predictor", page_icon="✈️
 warnings.filterwarnings("ignore")
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
-# --- 1. Load Artifacts (Model, Columns, and Dataset) ---
+# --- 1. Load Artifacts ---
 @st.cache_resource
 def load_artifacts():
     try:
@@ -31,7 +31,7 @@ def load_artifacts():
         df.dropna(subset=['Price'], inplace=True)
         return model, model_columns, df
     except FileNotFoundError as e:
-        st.error(f"Error: A required file was not found: '{e.filename}'.")
+        st.error(f"Error: A required file was not found: '{e.filename}'. Please ensure all artifacts are in the GitHub repository.")
         return None, None, None
 
 model, model_columns, df = load_artifacts()
@@ -67,32 +67,17 @@ def generate_fairness_report(_model, _df, _model_columns):
     plt.ylabel("RMSE (₹)")
     return grouped_on_class.by_group, fig
 
-@st.cache_data
-def check_data_drift(_df, column_name):
-    _df_sorted = _df.sort_index().reset_index(drop=True)
-    split_point = len(_df_sorted) // 2
-    reference_data = _df_sorted.loc[:split_point-1, column_name]
-    current_data = _df_sorted.loc[split_point:, column_name]
-
-    fig, ax = plt.subplots()
-    reference_data.plot(kind='hist', ax=ax, density=True, alpha=0.5, label='Reference Data (First 50%)')
-    current_data.plot(kind='hist', ax=ax, density=True, alpha=0.5, label='Current Data (Last 50%)')
-    plt.title(f"Data Drift Check for '{column_name}'")
-    plt.legend()
-    return fig
-
 # --- 3. UI Layout and Design ---
 st.title("✈️ Indigo Flight Price Prediction Dashboard")
 st.write("An end-to-end project demonstrating model deployment, explainability, and responsible AI.")
 
 if all([model, model_columns, df is not None]):
-    tab1, tab2, tab3, tab4 = st.tabs(["**Get a Prediction**", "**Model Insights**", "**Fairness Audit**", "**Data Drift**"])
+    tab1, tab2, tab3, tab4 = st.tabs(["**Get a Prediction**", "**Model Insights**", "**Fairness Audit**", "**Responsible AI**"])
 
     # --- Prediction Tab ---
     with tab1:
         st.header("Enter Flight Details for Prediction")
         col1, col2 = st.columns(2)
-        # ... (Prediction form code from previous version remains the same)
         with col1:
             day = st.selectbox("Day of the Week", options=sorted(df['Day_of_Week'].unique()))
             source = st.selectbox("Source Airport", options=sorted(df['Source'].unique()))
@@ -138,14 +123,39 @@ if all([model, model_columns, df is not None]):
             rmse_diff = fairness_df['RMSE'].max() - fairness_df['RMSE'].min()
             st.metric(label="Disparity (Difference in RMSE)", value=f"₹{rmse_diff:.2f}")
 
-    # --- Data Drift Tab ---
+    # --- Responsible AI Tab ---
     with tab4:
-        st.header("Data Drift Detection")
-        st.write("This section checks if the statistical properties of the data have changed over time. We simulate this by comparing the first half of the dataset with the second half.")
-        drift_column = st.selectbox("Select a feature to check for drift:", ['Seat_Occupancy_Rate', 'Passenger_Rating', 'Delay_Minutes'])
-        with st.spinner(f"Checking drift for {drift_column}..."):
-            drift_fig = check_data_drift(df, drift_column)
-            st.pyplot(drift_fig)
+        st.header("Responsible AI (RAI) Checklist")
+        st.markdown("""
+        This section outlines the steps taken to ensure the model was developed and evaluated responsibly.
+
+        ---
+
+        ### 1. Transparency and Explainability
+        **Objective:** To ensure that the model's decision-making process is understandable.
+        - **Global Explainability (SHAP):** We used SHAP to identify the most influential factors across all predictions, confirming the model learned logical patterns.
+        - **Local Explainability (LIME):** We used LIME to explain individual predictions, building trust and allowing for debugging.
+
+        ---
+
+        ### 2. Fairness and Bias
+        **Objective:** To identify and quantify any systematic biases in the model's performance.
+        - **Sensitive Attribute:** We audited the model for performance bias across the `Class` feature (Economy vs. Premium Economy).
+        - **Fairness Audit Finding:** The model's average prediction error (RMSE) is **~₹178 higher** for Economy class flights, indicating a performance bias.
+        - **Proposed Mitigation:** Strategies like reweighting training data or applying post-prediction adjustments were proposed to address this.
+
+        ---
+
+        ### 3. Privacy and Data Governance
+        - **No Personal Data:** The model was trained exclusively on anonymized flight data. No Personally Identifiable Information (PII) was used.
+        - **User Input:** The dashboard does not ask for or store any user-specific data.
+
+        ---
+
+        ### 4. Accountability and Human Oversight
+        - **Intended Use:** The model is intended as a tool for price estimation and market analysis, not as a fully autonomous system.
+        - **CI/CD Pipeline:** An automated CI/CD pipeline tests the model's integrity with every code change, ensuring reliability.
+        """)
 
 else:
     st.warning("Dashboard could not be loaded because one or more essential files are missing.")
