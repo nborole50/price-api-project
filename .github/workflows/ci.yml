@@ -1,4 +1,4 @@
-# .github/workflows/ci.yml (Corrected)
+# .github/workflows/ci.yml (Final Version with Debugging)
 
 name: CI Pipeline for Flight Price Prediction
 
@@ -13,12 +13,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      # This action checks out your repository code
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # This is the crucial fix: tells the action to fetch LFS files
-          lfs: true
+          lfs: true # Keep this just in case, it doesn't hurt
+
+      # --- NEW DEBUGGING STEP ---
+      - name: List files in the repository
+        run: ls -lR
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,7 +44,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Also fetch LFS files for the build job
           lfs: true
 
       - name: Build Docker image
