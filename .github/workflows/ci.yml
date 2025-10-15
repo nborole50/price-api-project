@@ -13,15 +13,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      # This action checks out your repository code
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # This is the crucial fix: tells the action to fetch LFS files
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
           cache: 'pip'
-          # This key tells the action to create a new cache if requirements.txt changes
           cache-dependency-path: 'requirements.txt'
 
       - name: Install dependencies
@@ -38,6 +41,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Also fetch LFS files for the build job
+          lfs: true
 
       - name: Build Docker image
         run: docker build -t flight-price-api .
