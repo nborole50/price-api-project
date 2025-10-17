@@ -1,4 +1,4 @@
-# dashboard.py (Enhanced Final Version with Analysis)
+# dashboard.py (Final Enhanced Version)
 
 import streamlit as st
 import pandas as pd
@@ -29,7 +29,7 @@ def load_artifacts():
         df['Date'] = pd.to_datetime(df['Date']) # Ensure Date is datetime
         return model, model_columns, df
     except FileNotFoundError as e:
-        st.error(f"Error: A required file was not found: '{e.filename}'.")
+        st.error(f"Error: A required file was not found: '{e.filename}'. Please ensure all artifacts are in the GitHub repository.")
         return None, None, None
 
 model, model_columns, df = load_artifacts()
@@ -65,35 +65,33 @@ if all([model, model_columns, df is not None]):
         - Serve as an end-to-end demonstration of a real-world data science project, from data cleaning and modeling to deployment and responsible AI auditing.
         """)
 
+        # --- NEW: Dataset Snapshot ---
+        st.header("Dataset Snapshot")
+        st.write("A quick look at the cleaned data used for training the model.")
+        st.dataframe(df.head())
+
         st.header("Exploratory Data Analysis")
         st.write("Visualizing the relationships within the flight dataset.")
 
         col1, col2 = st.columns(2)
-
         with col1:
-            # Chart 1: Average Price by Day of the Week
             st.subheader("Average Price by Day of Week")
             avg_price_day = df.groupby('Day_of_Week')['Price'].mean().sort_values()
             st.bar_chart(avg_price_day)
 
-            # Chart 3: Number of Flights by Source Airport
             st.subheader("Flight Volume by Source Airport")
             flights_by_source = df['Source'].value_counts()
             st.bar_chart(flights_by_source)
-
         with col2:
-            # Chart 2: Average Price by Month
             st.subheader("Average Price by Month")
             df['Month'] = df['Date'].dt.month
             avg_price_month = df.groupby('Month')['Price'].mean()
             st.line_chart(avg_price_month)
 
-            # Chart 4: Flight Volume by Class
             st.subheader("Flight Distribution by Class")
             fig, ax = plt.subplots()
             df['Class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
             st.pyplot(fig)
-
 
     # --- Prediction Tab ---
     with tab2:
@@ -106,8 +104,8 @@ if all([model, model_columns, df is not None]):
             flight_class = st.selectbox("Travel Class", options=sorted(df['Class'].unique()), key='pred_class')
         with p_col2:
             aircraft = st.selectbox("Aircraft Type", options=sorted(df['Aircraft_Type'].unique()), key='pred_aircraft')
-            weather = st.selectbox("Weather Conditions", options=sorted(df['Weather_Conditions'].unique()), key='pred_weather')
-            meal = st.selectbox("Meal Opted", options=sorted(df['Meal_Opted'].unique()), key='pred_meal')
+            weather = st.selectbox("Weather Conditions", options=sorted(df['Weather_Conditions'].unique()), key='pred_meal')
+            meal = st.selectbox("Meal Opted", options=sorted(df['Meal_Opted'].unique()), key='pred_meal_opt')
             booking = st.selectbox("Booking Channel", options=sorted(df['Booking_Channel'].unique()), key='pred_booking')
 
         seat_rate = st.slider("Seat Occupancy Rate (%)", 50.0, 100.0, 85.0, key='pred_seat')
@@ -137,11 +135,35 @@ if all([model, model_columns, df is not None]):
         st.header("Responsible AI (RAI) Checklist")
         st.markdown("""
         This section outlines the steps taken to ensure the model was developed and evaluated responsibly.
-        - **Transparency:** Used SHAP and LIME to make the model's decisions understandable.
-        - **Fairness:** Audited the model for performance bias across different travel classes and found a measurable disparity.
-        - **Privacy:** Confirmed that no Personally Identifiable Information (PII) was used in training or requested for prediction.
-        - **Accountability:** Implemented a CI/CD pipeline to ensure continuous testing and reliability.
+
+        ---
+
+        ### 1. Transparency and Explainability
+        **Objective:** To ensure that the model's decision-making process is understandable.
+        - **Global Explainability (SHAP):** We used SHAP to identify the most influential factors across all predictions, confirming the model learned logical patterns.
+        - **Local Explainability (LIME):** We used LIME to explain individual predictions, building trust and allowing for debugging.
+
+        ---
+
+        ### 2. Fairness and Bias
+        **Objective:** To identify and quantify any systematic biases in the model's performance.
+        - **Sensitive Attribute:** We audited the model for performance bias across the `Class` feature (Economy vs. Premium Economy).
+        - **Fairness Audit Finding:** The model's average prediction error (RMSE) is **~₹178 higher** for Economy class flights, indicating a performance bias.
+        - **Proposed Mitigation:** Strategies like reweighting training data or applying post-prediction adjustments were proposed to address this.
+
+        ---
+
+        ### 3. Privacy and Data Governance
+        - **No Personal Data:** The model was trained exclusively on anonymized flight data. No Personally Identifiable Information (PII) was used.
+        - **User Input:** The dashboard does not ask for or store any user-specific data.
+
+        ---
+
+        ### 4. Accountability and Human Oversight
+        - **Intended Use:** The model is intended as a tool for price estimation and market analysis, not as a fully autonomous system.
+        - **CI/CD Pipeline:** An automated CI/CD pipeline tests the model's integrity with every code change, ensuring reliability.
         """)
+        st.info("Note: The LIME and Fairness Audit analyses were performed in Experiment 5. The results are summarized here and presented on the dashboard.")
 
 else:
     st.warning("Dashboard could not be loaded because one or more essential files are missing from the repository.")
